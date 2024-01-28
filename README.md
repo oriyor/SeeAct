@@ -144,6 +144,8 @@ python element_attributes.py
 # Image Annotation
 python image_annotation.py
 ```
+Please download the Mind2Web raw dump from [this link](https://github.com/OSU-NLP-Group/Mind2Web?tab=readme-ov-file#raw-dump-with-full-traces-and-snapshots) and the query source data from [here](https://buckeyemailosu-my.sharepoint.com/:f:/g/personal/zheng_2372_buckeyemail_osu_edu/Ei95kzWnWlVAn4DR5I3zDDEBUZtC-9vIf0VBuFMOzZNn2w?e=OcH9Om). After downloading, please place both files in the `../data/` directory.
+
 
 ## Online Evaluation of Mind2Web Tasks
 To reproduce the online evaluation experiments in the paper, run the following command to run SeeAct in auto mode:
@@ -152,7 +154,7 @@ python src/seeact.py -c config/online_exp.toml
 ```
 Note: Some tasks may require manual updates to the task descriptions due to time sensitivity.
 
-We followed the 2-stage strategy of [MindAct](https://github.com/OSU-NLP-Group/Mind2Web) for fair comparison. You can find the trained ranker model [DeBERTa-v3-base](https://huggingface.co/osunlp/MindAct_CandidateGeneration_deberta-v3-base) in the Huggingface Model Hub.
+We followed the 2-stage strategy of [MindAct](https://github.com/OSU-NLP-Group/Mind2Web) for a fair comparison. You can find the trained ranker model [DeBERTa-v3-base](https://huggingface.co/osunlp/MindAct_CandidateGeneration_deberta-v3-base) in the Huggingface Model Hub.
 
 
 ## Licensing Information
