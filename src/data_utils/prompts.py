@@ -173,10 +173,10 @@ To be successful, it is important to follow the following rules:
 2. You should only issue one action at a time
 3. For handling the select dropdown elements on the webpage, it's not necessary for you to provide completely accurate options right now. The full list of options for these elements will be supplied later.'''
 
-seeact_online_action_format = "ACTION: Choose an action from {CLICK, SELECT, TYPE, PRESS ENTER, TERMINATE, NONE}."
+seeact_online_action_format = "ACTION: Choose an action from {CLICK, SELECT, TYPE, GOTO, PRESS ENTER, TERMINATE, NONE}."
 
 seeact_online_value_format = "VALUE: Provide additional input based on ACTION.\n\nThe VALUE means:\nIf ACTION == TYPE, specify the " \
-               "text to be typed.\nIf ACTION == SELECT, indicate the option to be chosen. Revise the selection value to align with the available options within the element.\nIf ACTION == CLICK, PRESS ENTER, TERMINATE or NONE, " \
+               "text to be typed.\nIf Action == GOTO, specify the url that you want to visit. \nIf ACTION == SELECT, indicate the option to be chosen. Revise the selection value to align with the available options within the element.\nIf ACTION == CLICK, PRESS ENTER, TERMINATE or NONE, " \
                "write \"None\"."
 
 seeact_choice_prompt_dict = {
@@ -218,7 +218,7 @@ ELEMENT: The uppercase letter of your choice. (No need for PRESS ENTER)""",
 
 
 
-def generate_prompt(experiment_split, task=None, previous=None, choices=None):
+def generate_prompt(experiment_split, task=None, previous=None, choices=None, original_plan=None, history=None, refined_plan=None, ):
     assert experiment_split != None, "Please specify the experiment split."
     assert task != None, "Please input the task."
     assert previous != None, "Please input the previous actions."
@@ -284,7 +284,39 @@ def generate_prompt(experiment_split, task=None, previous=None, choices=None):
         return prompt_list
     elif experiment_split in ["seeact_online","online","seeact","SeeAct"]:
         system_prompt_input = seeact_choice_prompt_dict["system_prompt"]
-        question_description_input = seeact_choice_prompt_dict["question_description"]
+        question_description_input = """The screenshot below shows the webpage you see. Follow the following guidance to think step by step before outlining the next action step at the current stage:
+
+(Original plan)
+The high level plan on how the task can be solved, formatted as a list of steps. This will stay the same between execution steps.
+
+(History)
+Information from steps that were already executed.
+
+(Refined plan)
+A refined plan after addressing relevant information from previous steps.
+ 
+(Current Webpage Identification)
+Firstly, think about what the current webpage is.
+
+(Previous Action Analysis)
+Secondly, combined with the screenshot, analyze each step of the previous action history and their intention one by one. Particularly, pay more attention to the last step, which may be more related to what you should do now as the next step. Specifically, if the last action involved a TYPE, always evaluate whether it necessitates a confirmation step, because typically a single TYPE action does not make effect. (often, simply pressing 'Enter', assuming the default element involved in the last action, unless other clear elements are present for operation).
+
+(Screenshot Details Analysis)
+Closely examine the screenshot to check the status of every part of the webpage to understand what you can operate with and what has been set or completed. You should closely examine the screenshot details to see what steps have been completed by previous actions even though you are given the textual previous actions. Because the textual history may not clearly and sufficiently record some effects of previous actions, you should closely evaluate the status of every part of the webpage to understand what you have done.
+
+(Relevant information)
+Relevant information that from the webpage to perform the task. Make sure this information can be understood from the webpage. This information will be passed to the next steps. If the webpage does not display any information to perform the task, say "no new infromation". You can use the next steps to find more information or verify information you are unsure of. 
+
+(New refined plan)
+A refined plan on how to solve the task that will be passed to next steps. If the original task has been completed, say: "Terminating, the task has been completed".
+
+(Next Action Based on Webpage and Analysis)
+Then, based on your analysis, in conjunction with human web browsing habits and the logic of web design, decide on the following action. And clearly outline which element in the webpage users will operate with as the first next target element, its detailed location, and the corresponding operation. If you require searching or verifying information you can use the web, for example Google.
+
+To be successful, it is important to follow the following rules: 
+1. You should only issue a valid action given the current observation. 
+2. You should only issue one action at a time
+3. For handling the select dropdown elements on the webpage, it's not necessary for you to provide completely accurate options right now. The full list of options for these elements will be supplied later."""#seeact_choice_prompt_dict["question_description"]
         referring_input = seeact_choice_prompt_dict["referring_description"]
         element_format_input = seeact_choice_prompt_dict["element_format"]
         action_format_input = seeact_choice_prompt_dict["action_format"]
@@ -293,7 +325,8 @@ def generate_prompt(experiment_split, task=None, previous=None, choices=None):
 
         prompt_list.extend(
             generate_new_query_prompt(system_prompt=system_prompt_input, task=task, previous_actions=previous,
-                                      question_description=question_description_input))
+                                      question_description=question_description_input,
+                                      original_plan=original_plan, history=history, refined_plan=refined_plan))
         prompt_list.append(
             generate_new_referring_prompt(referring_description=referring_input, element_format=element_format_input,
                                           action_format=action_format_input, value_format=value_format_input,

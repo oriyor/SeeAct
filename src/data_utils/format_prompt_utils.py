@@ -106,7 +106,7 @@ def generate_query_prompt(system_prompt="", task="", previous_actions=None, ques
     return query_text
 
 
-def generate_new_query_prompt(system_prompt="", task="", previous_actions=None, question_description=""):
+def generate_new_query_prompt(system_prompt="", task="", previous_actions=None, question_description="", original_plan=None, history=None, refined_plan=None):
     """
     Generate the first phase prompt to ask model to generate general descriptions about {environment, high-level plans, next step action}
     Each experiment will have a similar prompt in this phase
@@ -134,6 +134,23 @@ def generate_new_query_prompt(system_prompt="", task="", previous_actions=None, 
 
     # Question Description
     query_text += question_description
+
+    # if original plan is than this is the first step and we need to remove all other planning/refinement/memory fields
+    if original_plan is None:
+        query_text = query_text.replace("\n(History)\nInformation from steps that were already executed.\n", "").replace("\n(Refined plan)\nA refined plan after addressing relevant information from previous steps.\n","").replace("\n(New refined plan)\nA refined plan on how to solve the task that will be passed to next steps.\n", "")#.replace("\n(Relevant information)\nRelevant information from this step. This value will be passed to new steps.\n", "")
+
+    else:
+        query_text = query_text.replace("\n(Original plan)\nThe high level plan on how the task can be solved, formatted as a list of steps. This will stay the same between execution steps.\n",f"\n(Original plan)\n{original_plan}\n" "").replace("\n(History)\nInformation from steps that were already executed.\n", f"\n(History)\n{history}\n")
+
+    # refinement
+    if refined_plan is None:
+        query_text = query_text.replace(
+            "\n(Refined plan)\nA refined plan after addressing relevant information from previous steps.\n",
+            "").replace("(New refined plan)", "(Refined plan)")
+    else:
+        query_text = query_text.replace(
+            "\n(Refined plan)\nA refined plan after addressing relevant information from previous steps.\n",
+            f"\n(Refined plan)\n{refined_plan}\n")
     return [sys_role,query_text]
 
 def generate_referring_prompt(referring_description="", element_format="", action_format="", value_format="",
@@ -216,10 +233,14 @@ def format_options(choices):
         abcd += f"{generate_option_name(multichoice_idx)}, "
 
         non_abcd = generate_option_name(multichoice_idx + 1)
+        back_home = generate_option_name(multichoice_idx + 2)
 
-    multi_choice += f"{non_abcd}. None of the other options match the correct element"
+
+    multi_choice += f"{non_abcd}. None of the other options match the correct element\n"
+    multi_choice += f"{back_home}. Go to a different URL (for example Google.com)"
+
     # option_text += abcd
-    option_text += f"If none of these elements match your target element, please select {non_abcd}. None of the other options match the correct element.\n"
+    option_text += f"If none of these elements match your target element, please select {non_abcd}. None of the other options match the correct element. If you want to go a different URL such as Google.com, please select {back_home}. Go to a different URL\n"
 
     option_text += (multi_choice + '\n\n')
     return option_text

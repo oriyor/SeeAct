@@ -24,6 +24,7 @@ import datetime
 import json
 import logging
 import os
+import time
 import warnings
 from dataclasses import dataclass
 
@@ -196,15 +197,17 @@ async def main(config, base_dir) -> None:
     else:
         query_tasks = []
         task_dict = {}
-        task_input = await ainput(
-            f"Please input a task, and press Enter. \nOr directly press Enter to use the default task: {default_task}\nTask: ")
-        if not task_input:
-            task_input = default_task
+        task_input = "Find the Wikipedia page of the capital city of the country that was the champion of the 2010 World Cup"
+        website_input = "https://www.google.com/preferences?hl=iw&lang=1&prev=https://www.google.com/preferences?hl%3Diw"
+        # task_input = await ainput(
+        #     f"Please input a task, and press Enter. \nOr directly press Enter to use the default task: {default_task}\nTask: ")
+        # if not task_input:
+        #     task_input = default_task
         task_dict["confirmed_task"] = task_input
-        website_input = await ainput(
-            f"Please input the complete ulr of the starting website, and press Enter. The URL must be complete (for example, including http), to ensure the browser can successfully load the webpage. \nOr directly press Enter to use the default website: {default_website}\nWebsite: ")
-        if not website_input:
-            website_input = default_website
+        # website_input = await ainput(
+        #     f"Please input the complete ulr of the starting website, and press Enter. The URL must be complete (for example, including http), to ensure the browser can successfully load the webpage. \nOr directly press Enter to use the default website: {default_website}\nWebsite: ")
+        # if not website_input:
+        #     website_input = default_website
         task_dict["website"] = website_input
         # set the folder name as current time
         current_time = datetime.datetime.now()
@@ -263,13 +266,50 @@ async def main(config, base_dir) -> None:
             session_control.context.on("page", page_on_open_handler)
             await session_control.context.new_page()
             try:
+                # setup
+                logger.info("Going to settings page")
+                await session_control.active_page.set_extra_http_headers({"Accept-Language": "en-US"})
                 await session_control.active_page.goto(confirmed_website_url, wait_until="load")
+                elements = await get_interactive_elements_with_playwright(session_control.active_page)
+                target_element = elements[6][-2]
+                await target_element.click(timeout=10000)
+                logger.info("Changing language")
+                elements = await get_interactive_elements_with_playwright(session_control.active_page)
+                target_element = [x for x in elements if 'english' in x[1].lower() and "option" in x[2]][0][-2]
+                await target_element.click(timeout=10000)
+                target_element = [x for x in elements if 'אישור' in x[1].lower()][0][-2]
+                await target_element.click(timeout=10000)
+                logger.info("Changing region")
+                time.sleep(2)
+                logger.info("Getting elements")
+                try:
+                    elements = await get_interactive_elements_with_playwright(session_control.active_page)
+                    target_element = [x for x in elements if 'results region' in x[1].lower()][0][-2]
+                except:
+                    logger.info("Sleeping for 2 secs")
+                    time.sleep(2)
+                    elements = await get_interactive_elements_with_playwright(session_control.active_page)
+                    target_element = [x for x in elements if 'results region' in x[1].lower()][0][-2]
+                logger.info("Opening results")
+                await target_element.click(timeout=10000)
+                elements = await get_interactive_elements_with_playwright(session_control.active_page)
+                target_element = [x for x in elements if 'united states' in x[1].lower()][0][-2]
+                logger.info("Changing to US")
+                await target_element.click(timeout=10000)
+                target_element = [x for x in elements if 'confirm'.lower() in x[1].lower()][0][-2]
+                logger.info("Confirming")
+                await target_element.click(timeout=10000)
+                time.sleep(2)
+                logger.info("Going back to google.com")
+                await session_control.active_page.goto("https://www.google.com/", wait_until="load")
             except Exception as e:
                 logger.info("Failed to fully load the webpage before timeout")
                 logger.info(e)
             await asyncio.sleep(3)
 
             taken_actions = []
+            # history + plan
+            original_plan, history, refined_plan = None, "", None
             complete_flag = False
             monitor_signal = ""
             time_step = 0
@@ -393,7 +433,6 @@ async def main(config, base_dir) -> None:
                 log_task = "You are asked to complete the following task: " + confirmed_task
                 logger.info(log_task)
                 previous_actions = taken_actions
-
                 previous_action_text = "Previous Actions:\n"
                 if previous_actions is None or previous_actions == []:
                     previous_actions = ["None"]
@@ -439,8 +478,10 @@ async def main(config, base_dir) -> None:
                         logger.info(clip)
 
                     try:
-                        await session_control.active_page.screenshot(path=input_image_path, clip=clip, full_page=True,
+                        await session_control.active_page.screenshot(path=input_image_path, clip=clip, full_page=False,
                                                                      type='jpeg', quality=100, timeout=20000)
+                        # await session_control.active_page.locator("#Personal_life").screenshot(path=input_image_path,
+                        #                                               type='jpeg')
                     except Exception as e_clip:
                         logger.info(f"Failed to get cropped screenshot because {e_clip}")
 
@@ -455,6 +496,7 @@ async def main(config, base_dir) -> None:
                     query_count += 1
                     # Format prompts for LLM inference
                     prompt = generate_prompt(task=confirmed_task, previous=taken_actions, choices=choices,
+                                             original_plan=original_plan, history=history, refined_plan=refined_plan,
                                              experiment_split="SeeAct")
                     if dev_mode:
                         for prompt_i in prompt:
@@ -467,7 +509,23 @@ async def main(config, base_dir) -> None:
                     logger.info("🤖Action Generation Output🤖")
 
                     # logger.info(output0)
+                    # set history
+                    if original_plan != None:
+                        logger.info("Setting refined plan")
+                        split_sep = "New refined plan)"  if "New refined plan)" in output0 else "Refined plan)"
+                        refined_plan = output0.split(split_sep)[-1].split('Next Action Based ')[0].strip().replace(
+                            '(', '').replace(')', '')
+                        refined_plan = refined_plan.strip()
+                        logger.info(f"Refined plan set to: \n {refined_plan}")
 
+                    if original_plan is None:
+                        logger.info("Setting original_plan")
+                        original_plan = output0.split('Original plan)')[-1].split('Current Webpage')[0].strip().replace('(', '').replace(')', '')
+                        original_plan = original_plan.strip()
+                        logger.info(f"Original plan set to: \n{original_plan}")
+
+                    history = history + '\n' + f'Step {time_step}. \n' + output0.split('Relevant information')[-1].split('Next Action Based on Webpage and Analysis')[0].split("Refined plan")[0].split("New refined plan")[0].strip().replace('\n', '').replace('(', '').replace(')', '')
+                    history = history.strip()
                     for line in output0.split('\n'):
                         logger.info(line)
 
@@ -497,6 +555,14 @@ async def main(config, base_dir) -> None:
                         element_id = get_index_from_option_name(pred_element)
                     else:
                         element_id = -1
+
+                    if len(candidate_ids)+1 == element_id and pred_action.strip() in ["GOTO", "TYPE"]:
+                        target_element = "New URL"
+                        target_element_text = "New URL"
+                        target_action = "GOTO"
+                        target_value = pred_value
+                        got_one_answer = True
+
 
                     # Process the elements
                     if (0 <= element_id < len(candidate_ids) and pred_action.strip() in ["CLICK", "SELECT", "TYPE",
@@ -562,6 +628,7 @@ async def main(config, base_dir) -> None:
                     elif target_action == "TERMINATE":
                         raise Exception("The model determined a completion.")
 
+
                     # Perform browser action with PlayWright
                     # The code is complex to handle all kinds of cases in execution
                     # It's ugly, but it works, so far
@@ -610,6 +677,16 @@ async def main(config, base_dir) -> None:
                                         except Exception as eee:
                                             new_action = new_action.replace("CLICK", f"Failed to CLICK because {e}")
                                             no_op_count += 1
+
+                            elif target_action == "GOTO":
+                                logger.info(f"Trying to go to {target_value}")
+                                if not target_value.startswith("https://www."):
+                                    if target_value.startswith("www."):
+                                        target_value = "https://" + target_value
+                                    else:
+                                        target_value = "https://www." + target_value
+                                logger.info(f"Now trying to go to {target_value}")
+                                await session_control.active_page.goto(target_value, wait_until="load")
                             elif target_action == "TYPE":
                                 try:
                                     try:
@@ -797,6 +874,7 @@ async def main(config, base_dir) -> None:
                     if not session_control.context.pages:
                         await session_control.context.new_page()
                         try:
+                            await session_control.active_page.set_extra_http_headers({"Accept-Language": "en-US"})
                             await session_control.active_page.goto(confirmed_website_url, wait_until="load")
                         except Exception as e:
                             pass
