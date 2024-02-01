@@ -163,11 +163,11 @@ To be successful, it is important to follow the following rules:
 2. You should only issue one action at a time
 3. For handling the select dropdown elements on the webpage, it's not necessary for you to provide completely accurate options right now. The full list of options for these elements will be supplied later."""
 
-seeact_online_action_format = "ACTION: Choose an action from {CLICK, SELECT, TYPE, GOTO, PRESS ENTER, TERMINATE, NONE}."
+seeact_online_action_format = "ACTION: Choose an action from {CLICK, SELECT, TYPE, GOTO, SCROLL, PRESS ENTER, TERMINATE, NONE}."
 
 seeact_online_value_format = (
     "VALUE: Provide additional input based on ACTION.\n\nThe VALUE means:\nIf ACTION == TYPE, specify the "
-    "text to be typed.\nIf Action == GOTO, specify the url that you want to visit. \nIf ACTION == SELECT, indicate the option to be chosen. Revise the selection value to align with the available options within the element.\nIf ACTION == CLICK, PRESS ENTER, TERMINATE or NONE, "
+    "text to be typed.\nIf Action == GOTO, specify the url that you want to visit. \nIf Action == SCROLL, specify if you want to scroll up or down, If ACTION == SELECT, indicate the option to be chosen. Revise the selection value to align with the available options within the element.\nIf ACTION == CLICK, PRESS ENTER, TERMINATE or NONE, "
     'write "None".'
 )
 
@@ -292,7 +292,7 @@ def generate_prompt(
         )
         return prompt_list
     elif experiment_split in ["seeact_online", "online", "seeact", "SeeAct"]:
-        system_prompt_input = seeact_choice_prompt_dict["system_prompt"]
+        system_prompt_input = """Imagine that you are imitating humans doing web navigation for a task step by step. At each stage, you can see the webpage like humans by a screenshot and know the previous actions before the current step decided by yourself through recorded history. You need to decide on the first following action to take. You can click on an element with the mouse, select an option, type text, press Enter with the keyboard, scroll up and down, or go to a different URL (For your understanding, they are like the click(), select_option() type() keyboard.press('Enter'), page.goto() functions in playwright respectively) One next step means one operation. Unlike humans, for typing (e.g., in text areas, text boxes) and selecting (e.g., from dropdown menus or <select> elements), you should try directly typing the input or selecting the choice, bypassing the need for an initial click. You should not attempt to create accounts, log in or do the final submission. Terminate when you deem the task complete or if it requires potentially harmful actions."""
         question_description_input = """The screenshot below shows the webpage you see. Follow the following guidance to think step by step before outlining the next action step at the current stage:
 
 (Original plan)
@@ -317,7 +317,7 @@ Closely examine the screenshot to check the status of every part of the webpage 
 Relevant information that from the webpage to perform the task. Make sure this information can be understood from the webpage. This information will be passed to the next steps. If the webpage does not display any information to perform the task, say "no new infromation". You can use the next steps to find more information or verify information you are unsure of. 
 
 (New refined plan)
-A refined plan on how to solve the task that will be passed to next steps. If the original task has been completed, say: "Terminating, the task has been completed".
+A refined plan on how to solve the task that will be passed to next steps. If the original task has been completed, say: "Terminating, the task has been completed". If the task required finding information in the web, add: "Task answer:" followed by the relevant information.
 
 (Next Action Based on Webpage and Analysis)
 Then, based on your analysis, in conjunction with human web browsing habits and the logic of web design, decide on the following action. And clearly outline which element in the webpage users will operate with as the first next target element, its detailed location, and the corresponding operation. If you require searching or verifying information you can use the web, for example Google.

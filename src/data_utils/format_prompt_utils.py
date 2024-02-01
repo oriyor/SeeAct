@@ -277,13 +277,15 @@ def format_options(choices):
         abcd += f"{generate_option_name(multichoice_idx)}, "
 
         non_abcd = generate_option_name(multichoice_idx + 1)
-        back_home = generate_option_name(multichoice_idx + 2)
+        scroll = generate_option_name(multichoice_idx + 2)
+        back_home = generate_option_name(multichoice_idx + 3)
 
     multi_choice += f"{non_abcd}. None of the other options match the correct element\n"
+    multi_choice += f"{scroll}. Scroll (up or down)\n"
     multi_choice += f"{back_home}. Go to a different URL (for example Google.com)"
 
     # option_text += abcd
-    option_text += f"If none of these elements match your target element, please select {non_abcd}. None of the other options match the correct element. If you want to go a different URL such as Google.com, please select {back_home}. Go to a different URL\n"
+    option_text += f"If none of these elements match your target element, please select {non_abcd}. None of the other options match the correct element. If you want to scroll up or down the page, select {scroll}. Scroll (up or down). If you want to go a different URL such as Google.com, please select {back_home}. Go to a different URL\n"
 
     option_text += multi_choice + "\n\n"
     return option_text

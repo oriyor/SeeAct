@@ -227,7 +227,7 @@ async def main(config, base_dir) -> None:
     else:
         query_tasks = []
         task_dict = {}
-        task_input = "Find the Wikipedia page of the capital city of the country that was the champion of the 2010 World Cup"
+        task_input = "Find me a gff3 file for a dolphin that was updated since 2020"
         website_input = "https://www.google.com/preferences?hl=iw&lang=1&prev=https://www.google.com/preferences?hl%3Diw"
         # task_input = await ainput(
         #     f"Please input a task, and press Enter. \nOr directly press Enter to use the default task: {default_task}\nTask: ")
@@ -362,7 +362,7 @@ async def main(config, base_dir) -> None:
                 time.sleep(2)
                 logger.info("Going back to google.com")
                 await session_control.active_page.goto(
-                    "https://www.google.com/", wait_until="load"
+                    "https://www.google.com", wait_until="load"
                 )
             except Exception as e:
                 logger.info("Failed to fully load the webpage before timeout")
@@ -733,6 +733,7 @@ async def main(config, base_dir) -> None:
                     else:
                         element_id = -1
 
+                    # goto
                     if len(candidate_ids) + 1 == element_id and pred_action.strip() in [
                         "GOTO",
                         "TYPE",
@@ -740,6 +741,14 @@ async def main(config, base_dir) -> None:
                         target_element = "New URL"
                         target_element_text = "New URL"
                         target_action = "GOTO"
+                        target_value = pred_value
+                        got_one_answer = True
+
+                    # scroll
+                    if pred_action.strip() in ["SCROLL"]:
+                        target_element = "SCROLL"
+                        target_element_text = "SCROLL"
+                        target_action = "SCROLL"
                         target_value = pred_value
                         got_one_answer = True
 
@@ -892,6 +901,19 @@ async def main(config, base_dir) -> None:
                                 await session_control.active_page.goto(
                                     target_value, wait_until="load"
                                 )
+
+                            # scroll
+                            elif target_action == "SCROLL":
+                                logger.info(f"Scrolling {target_value}")
+                                if target_value.lower() == "up":
+                                    await session_control.active_page.evaluate(
+                                        f"window.scrollTo(0, 0);"
+                                    )  # Scroll down 1000 pixels
+                                else:
+                                    await session_control.active_page.evaluate(
+                                        f"window.scrollBy(0, {clip['height']});"
+                                    )  # Scroll down 1000 pixels
+
                             elif target_action == "TYPE":
                                 try:
                                     try:

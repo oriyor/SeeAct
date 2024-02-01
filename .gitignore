@@ -2,3 +2,5 @@ online_results/*
 .idea
 .idea/*
 __pycache__/*
+src/data_utils/__pycahce__/*
+*.pyc
