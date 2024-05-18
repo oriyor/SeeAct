@@ -463,7 +463,7 @@ async def get_element_data(element, tag_name):
     return [center_point, description, tag_head, box_model, selector, real_tag_name]
 
 
-async def get_interactive_elements_with_playwright(page):
+async def get_interactive_elements_with_playwright(page, clip=None):
     interactive_elements_selectors = [
         "a",
         "button",
@@ -507,7 +507,16 @@ async def get_interactive_elements_with_playwright(page):
             tag_name = tag_name.replace(':not([contenteditable="false"])', "")
             task = get_element_data(element, tag_name)
 
-            tasks.append(task)
+            if clip is None:
+                tasks.append(task)
+            else:
+                bounding_box = await element.bounding_box()
+                if bounding_box:
+                    if (bounding_box['x'] < clip['x'] + clip['width'] and
+                            bounding_box['x'] + bounding_box['width'] > clip['x'] and
+                            bounding_box['y'] < clip['y'] + clip['height'] and
+                            bounding_box['y'] + bounding_box['height'] > clip['y']):
+                        tasks.append(task)
 
     results = await asyncio.gather(*tasks)
 

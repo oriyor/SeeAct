@@ -80,6 +80,7 @@ session_control = SessionControl()
 #     return cdp_session
 
 
+
 async def page_on_close_handler(page):
     # print("Closed: ", page)
     if session_control.context:
@@ -170,7 +171,7 @@ async def main(config, base_dir) -> None:
     top_k = config["experiment"]["top_k"]
     fixed_choice_batch_size = config["experiment"]["fixed_choice_batch_size"]
     dynamic_choice_batch_size = config["experiment"]["dynamic_choice_batch_size"]
-    max_continuous_no_op = config["experiment"]["max_continuous_no_op"]
+    max_continuous_no_op = 3
     max_op = config["experiment"]["max_op"]
     highlight = config["experiment"]["highlight"]
     monitor = config["experiment"]["monitor"]
@@ -227,7 +228,7 @@ async def main(config, base_dir) -> None:
     else:
         query_tasks = []
         task_dict = {}
-        task_input = "Find me a gff3 file for a dolphin that was updated since 2020"
+        task_input = "What is the Gini index of the countries that have the world's 4 tallest buildings? (Provide the answer as a list of jsons with the keys 'county' and 'gini_index'. Keep the the values as concise as possible. When possible, use Wikipedia to find the relevant information. To make sure we will be able to parse the answer, do not generate any prefix, e.g. ,''json'', before the answers.)"
         website_input = "https://www.google.com/preferences?hl=iw&lang=1&prev=https://www.google.com/preferences?hl%3Diw"
         # task_input = await ainput(
         #     f"Please input a task, and press Enter. \nOr directly press Enter to use the default task: {default_task}\nTask: ")
@@ -364,10 +365,14 @@ async def main(config, base_dir) -> None:
                 await session_control.active_page.goto(
                     "https://www.google.com", wait_until="load"
                 )
+
             except Exception as e:
                 logger.info("Failed to fully load the webpage before timeout")
                 logger.info(e)
-            await asyncio.sleep(3)
+                await session_control.active_page.goto(
+                    "https://www.google.com", wait_until="load"
+                )
+            # await asyncio.sleep(2)
 
             taken_actions = []
             # history + plan
@@ -555,7 +560,7 @@ async def main(config, base_dir) -> None:
                 query_count = 0
                 got_one_answer = False
 
-                for multichoice_i in range(0, num_choices, step_length):
+                for multichoice_i in range(0, 1):
                     logger.info("-" * 10)
                     logger.info(
                         f"Start Multi-Choice QA - Batch {multichoice_i // step_length}"
@@ -607,6 +612,9 @@ async def main(config, base_dir) -> None:
                             quality=100,
                             timeout=20000,
                         )
+                        # elements = await get_interactive_elements_with_playwright(
+                        #     session_control.active_page, clip=clip
+                        # )
                         # await session_control.active_page.locator("#Personal_life").screenshot(path=input_image_path,
                         #                                               type='jpeg')
                     except Exception as e_clip:
@@ -620,11 +628,26 @@ async def main(config, base_dir) -> None:
                         if dev_mode:
                             logger.info("No screenshot")
                         continue
-                    candidate_ids = all_candidate_ids[
-                        multichoice_i : multichoice_i + step_length
-                    ]
+
+                    # take only relevant candidate ids
+                    clip_x_min = clip['x']
+                    clip_x_max = clip['x'] + clip['width']
+                    clip_y_min = clip['y']
+                    clip_y_max = clip['y'] + clip['height']
+
+                    screenshot_candidate_ids = []
+                    for el in all_candidate_ids_with_location:
+                        elem_id, elem_y, elem_x = el
+                        # Check if the element's coordinates are within the clip bounds
+                        if clip_x_min <= elem_x <= clip_x_max and clip_y_min <= elem_y <= clip_y_max:
+                            screenshot_candidate_ids.append(elem_id)
+
+                    # candidate_ids = all_candidate_ids[
+                    #     multichoice_i : multichoice_i + step_length
+                    # ]
+                    candidate_ids = screenshot_candidate_ids
                     choices = format_choices(
-                        elements, candidate_ids, confirmed_task, taken_actions
+                        elements, screenshot_candidate_ids, confirmed_task, taken_actions
                     )
                     query_count += 1
                     # Format prompts for LLM inference
@@ -734,9 +757,11 @@ async def main(config, base_dir) -> None:
                         element_id = -1
 
                     # goto
-                    if len(candidate_ids) + 1 == element_id and pred_action.strip() in [
+                    if pred_action.strip() in [
                         "GOTO",
+                        "SEARCH",
                         "TYPE",
+                        "GOBACK"
                     ]:
                         target_element = "New URL"
                         target_element_text = "New URL"
@@ -749,6 +774,20 @@ async def main(config, base_dir) -> None:
                         target_element = "SCROLL"
                         target_element_text = "SCROLL"
                         target_action = "SCROLL"
+                        target_value = pred_value
+                        got_one_answer = True
+
+                    if pred_action.strip() in ["SEARCH"]:
+                        target_element = "SEARCH"
+                        target_element_text = "SEARCH"
+                        target_action = "SEARCH"
+                        target_value = pred_value
+                        got_one_answer = True
+
+                    if pred_action.strip() in ["GOBACK"]:
+                        target_element = "GOBACK"
+                        target_element_text = "GOBACK"
+                        target_action = "GOBACK"
                         target_value = pred_value
                         got_one_answer = True
 
@@ -902,6 +941,22 @@ async def main(config, base_dir) -> None:
                                     target_value, wait_until="load"
                                 )
 
+                            elif target_action == "SEARCH":
+                                await session_control.active_page.goto(
+                                    "https://www.google.com/", wait_until="load"
+                                )
+                                elements = await get_interactive_elements_with_playwright(
+                                    session_control.active_page
+                                )
+                                search_element = [x for x in elements if "Search" in x[1] and "title" in x[1]][0][-2]
+                                await search_element.press_sequentially(
+                                    target_value, timeout=10000
+                                )
+                                click_element = [x for x in elements if "Google Search" in x[1]][0][-2]
+                                await click_element.evaluate(
+                                    "element => element.click()", timeout=10000
+                                )
+
                             # scroll
                             elif target_action == "SCROLL":
                                 logger.info(f"Scrolling {target_value}")
@@ -910,9 +965,16 @@ async def main(config, base_dir) -> None:
                                         f"window.scrollTo(0, 0);"
                                     )  # Scroll down 1000 pixels
                                 else:
+                                    window_height = await session_control.active_page.evaluate(
+                                     'window.innerHeight'
+                                    )
                                     await session_control.active_page.evaluate(
-                                        f"window.scrollBy(0, {clip['height']});"
+                                        f"window.scrollBy(0, {int(window_height*0.75)});"
                                     )  # Scroll down 1000 pixels
+
+                            elif target_action == "GOBACK":
+                                logger.info(f"Going back")
+                                await session_control.active_page.go_back();
 
                             elif target_action == "TYPE":
                                 try:

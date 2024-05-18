@@ -298,7 +298,7 @@ def postprocess_action_lmm(text):
         selected_option = "Invalid"
 
     action = re.search(
-        r"ACTION: (CLICK|SELECT|TYPE|HOVER|PRESS ENTER|TERMINATE|GOTO|SCROLL|NONE)",
+        r"ACTION: (CLICK|SELECT|TYPE|HOVER|PRESS ENTER|TERMINATE|GOTO|SCROLL|GOBACK|SEARCH|NONE)",
         text,
     )
 

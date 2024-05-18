@@ -278,14 +278,18 @@ def format_options(choices):
 
         non_abcd = generate_option_name(multichoice_idx + 1)
         scroll = generate_option_name(multichoice_idx + 2)
+        previous_page = generate_option_name(multichoice_idx + 2)
         back_home = generate_option_name(multichoice_idx + 3)
+        search = generate_option_name(multichoice_idx + 4)
 
     multi_choice += f"{non_abcd}. None of the other options match the correct element\n"
     multi_choice += f"{scroll}. Scroll (up or down)\n"
-    multi_choice += f"{back_home}. Go to a different URL (for example Google.com)"
+    multi_choice += f"{previous_page}. Go back to the previous page (similar to clicking on the back button)\n"
+    multi_choice += f"{back_home}. Go to a specific URL (for example Wikipedia.com)\n"
+    multi_choice += f"{search}. Execute a query in a search engine (Google.com)"
 
     # option_text += abcd
-    option_text += f"If none of these elements match your target element, please select {non_abcd}. None of the other options match the correct element. If you want to scroll up or down the page, select {scroll}. Scroll (up or down). If you want to go a different URL such as Google.com, please select {back_home}. Go to a different URL\n"
+    option_text += f"If none of these elements match your target element, please select {non_abcd}. None of the other options match the correct element. If you want to scroll up or down the page, select {scroll}. Scroll (up or down). If you want to go a different URL such as Google.com, please select {back_home}. Go to a different URL and pass the full URL as the value. If you want to run a query in a search engine, please select {search}. Execute a query in a search engine and pass the query as the value.\n"
 
     option_text += multi_choice + "\n\n"
     return option_text
