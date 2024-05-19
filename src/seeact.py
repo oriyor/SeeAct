@@ -172,7 +172,7 @@ async def main(config, base_dir) -> None:
     fixed_choice_batch_size = config["experiment"]["fixed_choice_batch_size"]
     dynamic_choice_batch_size = config["experiment"]["dynamic_choice_batch_size"]
     max_continuous_no_op = 3
-    max_op = config["experiment"]["max_op"]
+    max_op = 30
     highlight = config["experiment"]["highlight"]
     monitor = config["experiment"]["monitor"]
     dev_mode = config["experiment"]["dev_mode"]
